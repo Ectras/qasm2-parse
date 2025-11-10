@@ -106,4 +106,5 @@ pub enum Token {
     Identifier(String),
     #[token("/*", |lex| skip_to_closing_comment_token(lex))]
     BlockComment,
+    Eof,
 }

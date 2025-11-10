@@ -183,13 +183,13 @@ impl TokenKind {
 #[derive(Debug)]
 pub struct Token {
     /// The type of this token.
-    kind: TokenKind,
+    pub kind: TokenKind,
     //// The span in bytes in the source.
-    span: Range<usize>,
+    pub span: Range<usize>,
     /// The text of this token if non-trivial (is `None` for e.g. SEMICOLON, DOT, ...)
-    text: Option<String>,
+    pub text: Option<String>,
     /// The file this token originates from, if any (is `None` if parsing directly from a `&str`).
-    file: Option<Rc<PathBuf>>,
+    pub file: Option<Rc<PathBuf>>,
 }
 
 struct TokenKindLexer<'a>(Lexer<'a, TokenKind>);

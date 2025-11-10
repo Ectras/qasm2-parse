@@ -60,7 +60,7 @@ mod tests {
         // -2 + 2
         let out = eval(&Expr::Binary(
             BinOp::Add,
-            Box::new(Expr::Int(-2)),
+            Box::new(Expr::Unary(UnOp::Neg, Box::new(Expr::Int(2)))),
             Box::new(Expr::Int(2)),
         ));
         assert_approx_eq!(f64, out, 0.0);

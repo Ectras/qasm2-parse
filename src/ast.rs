@@ -90,7 +90,7 @@ impl Display for FuncType {
 /// A mathematical expression.
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Int(i64),
+    Int(u64),
     Float(f64),
     Variable(String),
     Unary(UnOp, Box<Expr>),

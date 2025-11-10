@@ -205,7 +205,7 @@ impl Parser {
     /// `<quantumOperation> ::= <gateCall> | "measure" <argument> "->" <argument> ";" | "reset" <argument> ";"`
     fn parse_quantum_operation(&mut self) -> Result<Statement, ParsingError> {
         let next_token = self.peek()?;
-        match next_token.kind {
+        let statement = match next_token.kind {
             TokenKind::Measure => {
                 self.expect(TokenKind::Measure)?;
                 let src = self.parse_argument()?;
@@ -221,7 +221,8 @@ impl Parser {
                 Ok(Statement::Reset { dest })
             }
             _ => self.parse_gate_call(),
-        }
+        }?;
+        Ok(statement)
     }
 
     /// `<ifStatement> ::= "if" "(" <identifier> "==" <integer> ")" <quantumOperation>`
@@ -259,6 +260,7 @@ impl Parser {
             Vec::new()
         };
         let qargs = self.parse_mixed_list()?;
+        self.expect(TokenKind::Semicolon)?;
         Ok(Statement::GateCall(GateCall { name, args, qargs }))
     }
 
@@ -348,6 +350,7 @@ impl Parser {
         } else {
             Vec::new()
         };
+        self.expect(TokenKind::RParen)?;
         Ok(exprs)
     }
 
@@ -426,6 +429,8 @@ impl Parser {
             }
 
             // ...then parse as binary expr
+            let kind = next_token.kind;
+            self.expect(kind)?;
             let right = self.parse_expr_prec(op.precedence() + 1)?;
             left = Expr::Binary(op, Box::new(left), Box::new(right));
         }

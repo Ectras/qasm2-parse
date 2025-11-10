@@ -251,7 +251,7 @@ impl MultiLexer {
     }
 
     /// Reads the contents of a new file and adds it on top of the lexer stack.
-    fn source_file(&mut self, filepath: &str) -> io::Result<()> {
+    pub fn source_file(&mut self, filepath: &str) -> io::Result<()> {
         let path = PathBuf::from(filepath);
         let (path, source) = if filepath == "qelib1.inc" {
             (path, QELIB.to_owned())

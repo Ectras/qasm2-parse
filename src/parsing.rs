@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ParsingError {
-    #[error("expected {expected}, but found {actual:?}")]
+    #[error("expected {expected}, but found {actual}")]
     UnexpectedToken { actual: TokenKind, expected: String },
     #[error(transparent)]
     LexingError(#[from] LexingError),
@@ -23,6 +23,8 @@ pub enum ParsingError {
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
     ParseFloatError(#[from] ParseFloatError),
+    #[error("unable to include file {file}: {reason}")]
+    IncludeError { file: String, reason: String },
     #[error("expected OPENQASM version \"2.0\", but found \"{0}\"")]
     WrongQasmVersion(String),
 }
@@ -107,6 +109,12 @@ impl Parser {
                 break;
             }
 
+            // Handle includes separately, because they are not statements in the AST
+            if next_token.kind == TokenKind::Include {
+                self.parse_include()?;
+                continue;
+            }
+
             // Parse the statement
             let statement = match next_token.kind {
                 TokenKind::Qreg | TokenKind::Creg => self.parse_declaration(),
@@ -131,6 +139,25 @@ impl Parser {
             return Err(ParsingError::WrongQasmVersion(version));
         }
         self.expect(TokenKind::Semicolon)?;
+        Ok(())
+    }
+
+    /// `<includeStatement> ::= "include" <string> ";"`
+    fn parse_include(&mut self) -> Result<(), ParsingError> {
+        self.expect(TokenKind::Include)?;
+        let path = self.expect(TokenKind::String)?;
+        let path = path.text.unwrap();
+        self.expect(TokenKind::Semicolon)?;
+        // Since we just popped a few tokens, we can be sure that no peeked element
+        // is buffered. So no worries about accidentially reading tokens from the old
+        // file.
+        self.lexer
+            .lexer
+            .source_file(&path)
+            .map_err(|err| ParsingError::IncludeError {
+                file: path,
+                reason: err.to_string(),
+            })?;
         Ok(())
     }
 

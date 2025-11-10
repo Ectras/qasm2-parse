@@ -80,7 +80,7 @@ impl Parser {
         } else {
             Err(ParsingError::UnexpectedToken {
                 actual: token.kind,
-                expected: format!("one of {}", Self::stringify_tokenvec(&expected)),
+                expected: format!("one of {}", Self::stringify_tokenvec(expected)),
             })
         }
     }
@@ -132,7 +132,7 @@ impl Parser {
 
     /// `<version> ::= "OPENQASM" (<integer> | <float>) ";"`
     fn parse_version(&mut self) -> Result<(), ParsingError> {
-        self.expect(TokenKind::OPENQASM)?;
+        self.expect(TokenKind::OpenQasm)?;
         let version = self.expect_either(&[TokenKind::Float, TokenKind::Integer])?;
         let version = version.text.unwrap();
         if version != "2.0" {

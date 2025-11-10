@@ -43,7 +43,7 @@ fn skip_to_closing_comment_token(lex: &mut Lexer<TokenKind>) -> Result<Skip, Lex
 #[logos(error = LexingError)]
 pub enum TokenKind {
     #[token("OPENQASM")]
-    OPENQASM,
+    OpenQasm,
     #[token("include")]
     Include,
     #[token("qreg")]
@@ -134,7 +134,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Identifier => "an identifier",
             TokenKind::BlockComment => "a block comment",
             TokenKind::Eof => "the end of input",
-            TokenKind::OPENQASM => "\"OPENQASM\"",
+            TokenKind::OpenQasm => "\"OPENQASM\"",
             TokenKind::Include => "\"include\"",
             TokenKind::Qreg => "\"qreg\"",
             TokenKind::Creg => "\"creg\"",

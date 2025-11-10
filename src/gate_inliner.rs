@@ -1,17 +1,49 @@
 use std::iter::zip;
 
 use rustc_hash::{FxHashMap, FxHashSet};
+use thiserror::Error;
 
 use crate::ast::{Expr, GateCall, GateDeclaration, Program, Statement};
 
+#[derive(Error, Debug, PartialEq)]
+pub enum GateCallError {
+    #[error("Wrong number of classical arguments: Got {actual} but expected {expected}")]
+    WrongNumberClassicalArgs { actual: usize, expected: usize },
+    #[error("Wrong number of quantum arguments: Got {actual} but expected {expected}")]
+    WrongNumberQuantumArgs { actual: usize, expected: usize },
+    #[error("The called gate \"{0}\" was not yet defined")]
+    UndefinedGate(String),
+    #[error("The called gate \"{0}\" is opaque and not known")]
+    OpaqueGate(String),
+    #[error("Undefined variable \"{0}\"")]
+    UndefinedVariable(String),
+}
+
 /// Struct to inline gate calls with previous gate declarations.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct GateInliner {
     definitions: FxHashMap<String, GateDeclaration>,
     terminal_gates: FxHashSet<&'static str>,
 }
 
 impl GateInliner {
+    /// Creates a new inliner that inlines all gate calls until only `U` and `CX`
+    /// gates are left.
+    pub fn new_minimal() -> Self {
+        Self::with_terminal_gates(FxHashSet::from_iter(["U", "CX"]))
+    }
+
+    // TODO: add new constructor for an inliner that stops at qelib1.inc gates
+
+    /// Creates a new inliner that inlines all gate calls with the respective gate
+    /// definitions until all calls are to gates in the `terminal_gates` set.
+    pub fn with_terminal_gates(terminal_gates: FxHashSet<&'static str>) -> Self {
+        Self {
+            definitions: FxHashMap::default(),
+            terminal_gates,
+        }
+    }
+
     /// Returns whether a gate with the given name is terminal, i.e., doesn't need
     /// further inlining.
     fn is_terminal_gate(&self, name: &str) -> bool {
@@ -20,82 +52,107 @@ impl GateInliner {
 
     /// Traverses an expression and replaces all variables with the expressions given
     /// by the context.
-    fn replace_vars(expr: &mut Expr, context: &FxHashMap<&String, &Expr>) {
+    fn replace_vars(
+        expr: &mut Expr,
+        context: &FxHashMap<&String, &Expr>,
+    ) -> Result<(), GateCallError> {
         match expr {
             Expr::Variable(x) => {
-                *expr = (**context.get(x).expect("Unknown variable name in gate call")).clone();
+                let Some(val) = context.get(x) else {
+                    return Err(GateCallError::UndefinedVariable(x.clone()));
+                };
+                *expr = (*val).clone();
             }
-            Expr::Unary(_, inner) | Expr::Function(_, inner) => Self::replace_vars(inner, context),
+            Expr::Unary(_, inner) | Expr::Function(_, inner) => Self::replace_vars(inner, context)?,
             Expr::Binary(_, lhs, rhs) => {
-                Self::replace_vars(lhs, context);
-                Self::replace_vars(rhs, context);
+                Self::replace_vars(lhs, context)?;
+                Self::replace_vars(rhs, context)?;
             }
             _ => (),
         }
+        Ok(())
     }
 
-    /// Returns a copy of the body of callee with the specific data filled in from the gate call.
-    fn get_body(&self, call: &GateCall, callee: &GateDeclaration) -> Vec<Statement> {
-        if let Some(body) = &callee.body {
-            // Map the names in the declaration to the actual values passed in the call
-            let name_to_expr = zip(&callee.params, &call.args).collect::<FxHashMap<_, _>>();
-            let name_to_qreg = zip(&callee.qubits, &call.qargs).collect::<FxHashMap<_, _>>();
+    /// Returns a copy of the body of callee with the specific data filled in from
+    /// the gate call.
+    fn get_body(
+        &self,
+        call: &GateCall,
+        callee: &GateDeclaration,
+    ) -> Result<Vec<Statement>, GateCallError> {
+        // We can only inline non-opaque gates
+        let Some(body) = &callee.body else {
+            return Err(GateCallError::OpaqueGate(callee.name.clone()));
+        };
 
-            let mut statements = Vec::with_capacity(body.len());
-            for statement in body {
-                let Statement::GateCall(call) = statement else {
-                    panic!("Expected only gate calls in a gate definition")
-                };
-
-                // Ensure that all calls of the gates to be inlined are already inlined
-                assert!(self.is_terminal_gate(&call.name));
-
-                // Replace any used variables by their actual values given by the caller
-                let mut new_args = Vec::with_capacity(call.args.len());
-                for arg in &call.args {
-                    let mut arg = arg.clone();
-                    Self::replace_vars(&mut arg, &name_to_expr);
-                    new_args.push(arg);
-                }
-
-                // Replace any used qubit by the actual qreg reference
-                let mut new_qargs = Vec::with_capacity(call.qargs.len());
-                for qarg in &call.qargs {
-                    let global_name = *name_to_qreg
-                        .get(&qarg.0)
-                        .expect("Unknown variable name in gate call");
-                    new_qargs.push(global_name.clone());
-                }
-
-                statements.push(Statement::GateCall(GateCall {
-                    name: call.name.clone(),
-                    args: new_args,
-                    qargs: new_qargs,
-                }));
-            }
-            statements
+        // Map the names in the declaration to the actual values passed in the call
+        let binded_vars = if callee.params.len() == call.args.len() {
+            zip(&callee.params, &call.args).collect::<FxHashMap<_, _>>()
         } else {
-            panic!("Unable to inline opaque gate {}", callee.name);
+            return Err(GateCallError::WrongNumberClassicalArgs {
+                actual: call.args.len(),
+                expected: callee.params.len(),
+            });
+        };
+        let binded_qargs = if callee.qubits.len() == call.qargs.len() {
+            zip(&callee.qubits, &call.qargs).collect::<FxHashMap<_, _>>()
+        } else {
+            return Err(GateCallError::WrongNumberQuantumArgs {
+                actual: call.qargs.len(),
+                expected: callee.qubits.len(),
+            });
+        };
+
+        // Replace the variables in the body with the actual values
+        let mut statements = Vec::with_capacity(body.len());
+        for statement in body {
+            let Statement::GateCall(call) = statement else {
+                // TODO: It can also contain barriers
+                panic!("Expected only gate calls in a gate definition")
+            };
+
+            // Ensure that all calls of the gates to be inlined are already inlined
+            assert!(self.is_terminal_gate(&call.name));
+
+            // Replace any used variables by their actual values given by the caller
+            let mut new_args = Vec::with_capacity(call.args.len());
+            for arg in &call.args {
+                let mut arg = arg.clone();
+                Self::replace_vars(&mut arg, &binded_vars)?;
+                new_args.push(arg);
+            }
+
+            // Replace any used qubit by the actual qreg reference
+            let mut new_qargs = Vec::with_capacity(call.qargs.len());
+            for qarg in &call.qargs {
+                let Some(global_name) = binded_qargs.get(&qarg.0) else {
+                    return Err(GateCallError::UndefinedVariable(qarg.0.clone()));
+                };
+                new_qargs.push((*global_name).clone());
+            }
+
+            statements.push(Statement::GateCall(GateCall {
+                name: call.name.clone(),
+                args: new_args,
+                qargs: new_qargs,
+            }));
         }
+        Ok(statements)
     }
 
     /// Returns the body of the called gate, with all parameters filled in.
-    ///
-    /// # Panics
-    /// Panics if the called gate was not yet defined.
-    fn get_inlined_body(&self, call: &GateCall) -> Vec<Statement> {
-        let callee = self.definitions.get(&call.name);
-        if let Some(callee) = callee {
+    fn get_inlined_body(&self, call: &GateCall) -> Result<Vec<Statement>, GateCallError> {
+        if let Some(callee) = self.definitions.get(&call.name) {
             self.get_body(call, callee)
         } else {
-            panic!("Call to gate {} which was not defined yet", call.name);
+            Err(GateCallError::UndefinedGate(call.name.clone()))
         }
     }
 
     /// Takes a list of statements and inlines every gate call with the corresponding
     /// gate definition. Gate definitions are removed and added to the internal list
     /// of known gates.
-    fn inline(&mut self, statements: &mut Vec<Statement>) {
+    fn inline(&mut self, statements: &mut Vec<Statement>) -> Result<(), GateCallError> {
         enum Change {
             Remove(usize),
             Replace(usize, Vec<Statement>),
@@ -110,7 +167,7 @@ impl GateInliner {
 
                     // Inline all gate calls inside the gate body
                     if let Some(body) = data.body.as_mut() {
-                        self.inline(body);
+                        self.inline(body)?;
                     }
 
                     // Store the gate and mark statement as to be removed
@@ -120,7 +177,7 @@ impl GateInliner {
                 Statement::GateCall(call) => {
                     if !self.is_terminal_gate(&call.name) {
                         // Get the inlined body and mark the call as to be replaced
-                        let body = self.get_inlined_body(call);
+                        let body = self.get_inlined_body(call)?;
                         changes.push(Change::Replace(i, body));
                     }
                 }
@@ -140,16 +197,17 @@ impl GateInliner {
                 }
             };
         }
+        Ok(())
     }
 
-    /// Registers the gate as known.
+    /// Registers a new gate definition.
     fn register_gate(&mut self, gate: GateDeclaration) {
         self.definitions.insert(gate.name.clone(), gate);
     }
 
     /// Inlines all gate calls in the program.
-    pub fn inline_program(&mut self, program: &mut Program) {
-        self.inline(&mut program.statements);
+    pub fn inline_program(&mut self, program: &mut Program) -> Result<(), GateCallError> {
+        self.inline(&mut program.statements)
     }
 }
 
@@ -186,7 +244,7 @@ mod tests {
                     vec![String::from("a"), String::from("b")],
                     vec![String::from("q")],
                     vec![Statement::gate_call(
-                        "u",
+                        "U",
                         vec![
                             Expr::Binary(
                                 BinOp::Add,
@@ -210,7 +268,7 @@ mod tests {
                             vec![Argument(String::from("q2"), None)],
                         ),
                         Statement::gate_call(
-                            "u",
+                            "U",
                             vec![Expr::Int(1), Expr::Int(2), Expr::Int(3)],
                             vec![Argument(String::from("q1"), None)],
                         ),
@@ -232,15 +290,16 @@ mod tests {
             ],
         };
 
-        let mut inliner = GateInliner::default();
-        inliner.inline_program(&mut program);
+        let mut inliner = GateInliner::new_minimal();
+        let result = inliner.inline_program(&mut program);
 
+        assert_eq!(result, Ok(()));
         assert_eq!(
             program,
             Program {
                 statements: vec![
                     Statement::gate_call(
-                        "u",
+                        "U",
                         vec![
                             Expr::Binary(
                                 BinOp::Add,
@@ -253,12 +312,12 @@ mod tests {
                         vec![Argument(String::from("q"), Some(1))]
                     ),
                     Statement::gate_call(
-                        "u",
+                        "U",
                         vec![Expr::Int(1), Expr::Int(2), Expr::Int(3)],
                         vec![Argument(String::from("q"), Some(0))]
                     ),
                     Statement::gate_call(
-                        "u",
+                        "U",
                         vec![
                             Expr::Binary(
                                 BinOp::Add,
@@ -306,8 +365,8 @@ mod tests {
             Box::new(expr_b.clone()),
         );
 
-        GateInliner::replace_vars(&mut expr, &context);
-
+        let result = GateInliner::replace_vars(&mut expr, &context);
+        assert_eq!(result, Ok(()));
         assert_eq!(expr, replaced);
     }
 }

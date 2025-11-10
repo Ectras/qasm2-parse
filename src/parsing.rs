@@ -1,9 +1,16 @@
-use std::{iter::Peekable, num::ParseIntError};
+use std::{
+    f64::consts,
+    iter::Peekable,
+    num::{ParseFloatError, ParseIntError},
+};
 
 use thiserror::Error;
 
 use crate::{
-    ast::{Argument, Expr, GateCall, GateDeclaration, Program, Statement},
+    ast::{
+        Argument, BinOp, Expr, FuncType, GateCall, GateDeclaration, Precedence, Program, Statement,
+        UnOp,
+    },
     lexing::{LexingError, MultiLexer, Token, TokenKind},
 };
 
@@ -14,7 +21,9 @@ pub enum ParsingError {
     #[error(transparent)]
     LexingError(#[from] LexingError),
     #[error(transparent)]
-    ParsingError(#[from] ParseIntError),
+    ParseIntError(#[from] ParseIntError),
+    #[error(transparent)]
+    ParseFloatError(#[from] ParseFloatError),
     #[error("expected OPENQASM version \"2.0\", but found \"{0}\"")]
     WrongQasmVersion(String),
 }
@@ -330,8 +339,91 @@ impl Parser {
         size.text.unwrap().parse().map_err(Into::into)
     }
 
+    /// `<exp> ::= <factor> | <exp> <binop> <exp>`
     fn parse_expr(&mut self) -> Result<Expr, ParsingError> {
-        todo!()
+        self.parse_expr_prec(Precedence::default())
+    }
+
+    fn parse_expr_prec(&mut self, min_prec: Precedence) -> Result<Expr, ParsingError> {
+        let mut left = self.parse_factor()?;
+        loop {
+            // Peek the next token
+            let next_token = self.peek()?;
+            // If it is a binary operator...
+            let Some(op) = Self::get_binop(next_token.kind) else {
+                break;
+            };
+            // and it has higher precedence...
+            if op.precedence() < min_prec {
+                break;
+            }
+
+            // ...then parse as binary expr
+            let right = self.parse_expr_prec(op.precedence() + 1)?;
+            left = Expr::Binary(op, Box::new(left), Box::new(right));
+        }
+        Ok(left)
+    }
+
+    /// `<factor> ::= <float> | <integer> | "pi" | <identifier> | "-" <factor> | "(" <exp> ")" | ("sin" | "cos" | "tan" | "exp" | "ln" | "sqrt") "(" <exp> ")"`
+    fn parse_factor(&mut self) -> Result<Expr, ParsingError> {
+        let token = self.expect_either(&[
+            TokenKind::Float,
+            TokenKind::Integer,
+            TokenKind::Pi,
+            TokenKind::Identifier,
+            TokenKind::Minus,
+            TokenKind::LParen,
+            TokenKind::Sin,
+            TokenKind::Cos,
+            TokenKind::Tan,
+            TokenKind::Exp,
+            TokenKind::Ln,
+            TokenKind::Sqrt,
+        ])?;
+        let expr = match token.kind {
+            TokenKind::Float => Expr::Float(token.text.unwrap().parse()?),
+            TokenKind::Integer => Expr::Int(token.text.unwrap().parse()?),
+            TokenKind::Pi => Expr::Float(consts::PI),
+            TokenKind::Identifier => Expr::Variable(token.text.unwrap()),
+            TokenKind::Minus => {
+                let inner = self.parse_factor()?;
+                Expr::Unary(UnOp::Neg, Box::new(inner))
+            }
+            TokenKind::LParen => {
+                let inner = self.parse_expr()?;
+                self.expect(TokenKind::RParen)?;
+                inner
+            }
+            _ => {
+                let fun = match token.kind {
+                    TokenKind::Sin => FuncType::Sin,
+                    TokenKind::Cos => FuncType::Cos,
+                    TokenKind::Tan => FuncType::Tan,
+                    TokenKind::Exp => FuncType::Exp,
+                    TokenKind::Ln => FuncType::Ln,
+                    TokenKind::Sqrt => FuncType::Sqrt,
+                    _ => unreachable!(),
+                };
+                self.expect(TokenKind::LParen)?;
+                let inner = self.parse_expr()?;
+                self.expect(TokenKind::RParen)?;
+                Expr::Function(fun, Box::new(inner))
+            }
+        };
+        Ok(expr)
+    }
+
+    /// Returns the [`BinOp`] this token represents (if it is a binary operator).
+    fn get_binop(kind: TokenKind) -> Option<BinOp> {
+        match kind {
+            TokenKind::Plus => Some(BinOp::Add),
+            TokenKind::Minus => Some(BinOp::Sub),
+            TokenKind::Asterisk => Some(BinOp::Mul),
+            TokenKind::Slash => Some(BinOp::Div),
+            TokenKind::Caret => Some(BinOp::BitXor),
+            _ => None,
+        }
     }
 }
 

@@ -151,7 +151,7 @@ impl PartialEq for Expr {
 
 /// A name with optionally a designator, e.g. `a` or `q[5]`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Argument(pub String, pub Option<u32>);
+pub struct Argument(pub String, pub Option<usize>);
 
 impl Display for Argument {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

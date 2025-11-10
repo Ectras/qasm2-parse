@@ -519,11 +519,144 @@ mod tests {
         assert_eq!(
             res,
             Ok(Program {
-                statements: vec![Statement::RegisterDeclaration {
-                    is_quantum: true,
-                    name: "foo".into(),
-                    size: 5
-                }]
+                statements: vec![Statement::qreg("foo", 5)]
+            })
+        );
+    }
+
+    #[test]
+    fn bell_state() {
+        let text = "\
+OPENQASM 2.0;
+
+qreg q[2];
+creg c[2];
+U(pi/2, 0, pi) q[0];
+CX q[0], q[1];
+measure q -> c;";
+        let lexer = MultiLexer::from_text(text.into());
+        let mut parser = Parser::new(PeekableMultiLexer::new(lexer));
+        let res = parser.parse();
+        assert_eq!(
+            res,
+            Ok(Program {
+                statements: vec![
+                    Statement::qreg("q", 2),
+                    Statement::creg("c", 2),
+                    Statement::gate_call(
+                        "u",
+                        vec![
+                            Expr::Binary(
+                                BinOp::Div,
+                                Box::new(Expr::Float(consts::PI)),
+                                Box::new(Expr::Int(2))
+                            ),
+                            Expr::Int(0),
+                            Expr::Float(consts::PI)
+                        ],
+                        vec![Argument("q".into(), Some(0))]
+                    ),
+                    Statement::gate_call(
+                        "cx",
+                        vec![],
+                        vec![Argument("q".into(), Some(0)), Argument("q".into(), Some(1))]
+                    ),
+                    Statement::Measurement {
+                        src: Argument("q".into(), None),
+                        dest: Argument("c".into(), None)
+                    }
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn only_include() {
+        let text = "OPENQASM 2.0; include \"qelib1.inc\";";
+        let lexer = MultiLexer::from_text(text.into());
+        let mut parser = Parser::new(PeekableMultiLexer::new(lexer));
+        let res = parser.parse();
+        assert!(res.is_ok(), "{res:?}");
+    }
+
+    #[test]
+    fn expr_mul_funcs() {
+        let text = "OPENQASM 2.0; qreg q[1]; u1(cos(3.14) * sin(0)) q[0];";
+        let lexer = MultiLexer::from_text(text.into());
+        let mut parser = Parser::new(PeekableMultiLexer::new(lexer));
+        let res = parser.parse();
+        assert_eq!(
+            res,
+            Ok(Program {
+                statements: vec![
+                    Statement::qreg("q", 1),
+                    Statement::gate_call(
+                        "u1",
+                        vec![Expr::Binary(
+                            BinOp::Mul,
+                            Box::new(Expr::Function(FuncType::Cos, Box::new(Expr::Float(3.14)))),
+                            Box::new(Expr::Function(FuncType::Sin, Box::new(Expr::Int(0))))
+                        )],
+                        vec![Argument("q".into(), Some(0))]
+                    )
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn custom_gate_decl_and_call() {
+        let text = "OPENQASM 2.0; gate foo(a) c,t { cp(a) c, t; } qreg q[2]; foo(pi) q[1], q[0];";
+        let lexer = MultiLexer::from_text(text.into());
+        let mut parser = Parser::new(PeekableMultiLexer::new(lexer));
+        let res = parser.parse();
+        assert_eq!(
+            res,
+            Ok(Program {
+                statements: vec![
+                    Statement::gate_declaration(
+                        "foo",
+                        vec!["a".into()],
+                        vec!["c".into(), "t".into()],
+                        vec![Statement::gate_call(
+                            "cp",
+                            vec![Expr::Variable("a".into())],
+                            vec![Argument("c".into(), None), Argument("t".into(), None)]
+                        )]
+                    ),
+                    Statement::qreg("q", 2),
+                    Statement::gate_call(
+                        "foo",
+                        vec![Expr::Float(consts::PI)],
+                        vec![Argument("q".into(), Some(1)), Argument("q".into(), Some(0))]
+                    )
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn if_statement() {
+        let text = "OPENQASM 2.0; qreg q[1]; creg c[2]; if(c==3) h q[0];";
+        let lexer = MultiLexer::from_text(text.into());
+        let mut parser = Parser::new(PeekableMultiLexer::new(lexer));
+        let res = parser.parse();
+        assert_eq!(
+            res,
+            Ok(Program {
+                statements: vec![
+                    Statement::qreg("q", 1),
+                    Statement::creg("c", 2),
+                    Statement::If {
+                        variable: "c".into(),
+                        condition: 3,
+                        body: Box::new(Statement::gate_call(
+                            "h",
+                            vec![],
+                            vec![Argument("q".into(), Some(0))]
+                        ))
+                    }
+                ]
             })
         );
     }

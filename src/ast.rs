@@ -294,6 +294,30 @@ impl Display for Statement {
 }
 
 impl Statement {
+    /// Creates a new quantum register declaration statement.
+    pub fn qreg<S>(name: S, size: usize) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::RegisterDeclaration {
+            is_quantum: true,
+            name: name.into(),
+            size,
+        }
+    }
+
+    /// Creates a new classical register declaration statement.
+    pub fn creg<S>(name: S, size: usize) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::RegisterDeclaration {
+            is_quantum: false,
+            name: name.into(),
+            size,
+        }
+    }
+
     /// Creates a new gate declaration statement.
     pub fn gate_declaration<S>(
         name: S,

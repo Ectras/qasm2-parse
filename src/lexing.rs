@@ -256,7 +256,7 @@ impl MultiLexer {
         let (path, source) = if filepath == "qelib1.inc" {
             (path, QELIB.to_owned())
         } else {
-            let path = path.canonicalize().unwrap();
+            let path = path.canonicalize()?;
             let text = fs::read_to_string(&path)?;
             (path, text)
         };

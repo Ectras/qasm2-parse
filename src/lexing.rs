@@ -12,7 +12,7 @@ use thiserror::Error;
 /// A built-in file with standard definitions for QASM2 programs.
 static QELIB: &str = include_str!("qelib1.inc");
 
-#[derive(Error, Default, Debug, Clone, PartialEq)]
+#[derive(Error, Default, Debug, Clone, Copy, PartialEq)]
 pub enum LexingError {
     #[error("unclosed block comment")]
     UnclosedComment,

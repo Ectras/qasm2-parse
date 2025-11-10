@@ -1,9 +1,9 @@
-use std::num::ParseFloatError;
+use std::{iter::Peekable, num::ParseIntError};
 
 use thiserror::Error;
 
 use crate::{
-    ast::Program,
+    ast::{Program, Statement},
     lexing::{LexingError, MultiLexer, Token, TokenKind},
 };
 
@@ -14,18 +14,20 @@ pub enum ParsingError {
     #[error(transparent)]
     LexingError(#[from] LexingError),
     #[error(transparent)]
-    ParsingError(#[from] ParseFloatError),
+    ParsingError(#[from] ParseIntError),
     #[error("expected OPENQASM version \"2.0\", but found \"{0}\"")]
     WrongQasmVersion(String),
 }
 
 struct Parser {
-    lexer: MultiLexer,
+    lexer: Peekable<MultiLexer>,
 }
 
 impl Parser {
     pub fn new(lexer: MultiLexer) -> Self {
-        Self { lexer }
+        Self {
+            lexer: lexer.peekable(),
+        }
     }
 
     /// Pops the next token and checks that it is of the expected kind. Returns the
@@ -81,9 +83,31 @@ impl Parser {
 
     fn parse_program(&mut self) -> Result<Program, ParsingError> {
         self.parse_version()?;
-        // TODO: parse statements
+        let mut statements = Vec::new();
+        loop {
+            // Peek the next token
+            let next_token = self.lexer.peek().unwrap().as_ref().map_err(|err| *err)?;
+
+            // End when we are done with all input
+            if next_token.kind == TokenKind::Eof {
+                break;
+            }
+
+            // Parse the statement
+            let statement = match next_token.kind {
+                TokenKind::Qreg | TokenKind::Creg => self.parse_declaration(),
+                _ => {
+                    return Err(ParsingError::UnexpectedToken {
+                        actual: next_token.kind,
+                        expected: "a statement".into(),
+                    });
+                }
+            }?;
+
+            statements.push(statement);
+        }
         self.expect(TokenKind::Eof)?;
-        todo!()
+        Ok(Program { statements })
     }
 
     fn parse_version(&mut self) -> Result<(), ParsingError> {
@@ -95,5 +119,49 @@ impl Parser {
         }
         self.expect(TokenKind::Semicolon)?;
         Ok(())
+    }
+
+    fn parse_declaration(&mut self) -> Result<Statement, ParsingError> {
+        let decl = self.expect_either(&[TokenKind::Qreg, TokenKind::Creg])?;
+        let is_quantum = decl.kind == TokenKind::Qreg;
+        let identifier = self.expect(TokenKind::Identifier)?;
+        let name = identifier.text.unwrap();
+        let size = self.parse_designator()?;
+        self.expect(TokenKind::Semicolon)?;
+        Ok(Statement::RegisterDeclaration {
+            is_quantum,
+            name,
+            size,
+        })
+    }
+
+    fn parse_designator(&mut self) -> Result<usize, ParsingError> {
+        self.expect(TokenKind::LBracket)?;
+        let size = self.expect(TokenKind::Integer)?;
+        self.expect(TokenKind::RBracket)?;
+        size.text.unwrap().parse().map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn single_declaration() {
+        let text = "OPENQASM 2.0; qreg foo[5];";
+        let lexer = MultiLexer::from_text(text.into());
+        let mut parser = Parser::new(lexer);
+        let res = parser.parse();
+        assert_eq!(
+            res,
+            Ok(Program {
+                statements: vec![Statement::RegisterDeclaration {
+                    is_quantum: true,
+                    name: "foo".into(),
+                    size: 5
+                }]
+            })
+        );
     }
 }

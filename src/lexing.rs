@@ -308,3 +308,43 @@ impl Iterator for MultiLexer {
         }
     }
 }
+
+pub struct PeekableMultiLexer {
+    pub lexer: MultiLexer,
+    peeked: Option<Option<Result<Token, LexingError>>>,
+}
+
+impl PeekableMultiLexer {
+    pub fn new(lexer: MultiLexer) -> Self {
+        Self {
+            lexer,
+            peeked: None,
+        }
+    }
+
+    /// Peeks the next element without removing it from the iter. If the iter is
+    /// done, returns `None`.
+    pub fn peek(&mut self) -> Option<Result<&Token, LexingError>> {
+        // Populate the peeked field
+        if self.peeked.is_none() {
+            self.peeked = Some(self.lexer.next());
+        }
+        self.peeked
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .map(|res| res.as_ref().map_err(|err| *err))
+    }
+}
+
+impl Iterator for PeekableMultiLexer {
+    type Item = Result<Token, LexingError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(peeked) = self.peeked.take() {
+            peeked
+        } else {
+            self.lexer.next()
+        }
+    }
+}

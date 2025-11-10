@@ -1,6 +1,5 @@
 use std::{
     f64::consts,
-    iter::Peekable,
     num::{ParseFloatError, ParseIntError},
 };
 
@@ -11,7 +10,7 @@ use crate::{
         Argument, BinOp, Expr, FuncType, GateCall, GateDeclaration, Precedence, Program, Statement,
         UnOp,
     },
-    lexing::{LexingError, MultiLexer, Token, TokenKind},
+    lexing::{LexingError, PeekableMultiLexer, Token, TokenKind},
 };
 
 #[derive(Error, Debug, PartialEq)]
@@ -29,14 +28,12 @@ pub enum ParsingError {
 }
 
 struct Parser {
-    lexer: Peekable<MultiLexer>,
+    lexer: PeekableMultiLexer,
 }
 
 impl Parser {
-    pub fn new(lexer: MultiLexer) -> Self {
-        Self {
-            lexer: lexer.peekable(),
-        }
+    pub fn new(lexer: PeekableMultiLexer) -> Self {
+        Self { lexer }
     }
 
     /// Pops the next token and checks that it is of the expected kind. Returns the
@@ -90,11 +87,7 @@ impl Parser {
     /// the iter should end with an "EoF" token and peek should not be called after
     /// that.
     fn peek(&mut self) -> Result<&Token, ParsingError> {
-        self.lexer
-            .peek()
-            .unwrap()
-            .as_ref()
-            .map_err(|err| (*err).into())
+        Ok(self.lexer.peek().unwrap()?)
     }
 
     pub fn parse(&mut self) -> Result<Program, ParsingError> {
@@ -476,13 +469,15 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use crate::lexing::MultiLexer;
+
     use super::*;
 
     #[test]
     fn single_declaration() {
         let text = "OPENQASM 2.0; qreg foo[5];";
         let lexer = MultiLexer::from_text(text.into());
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(PeekableMultiLexer::new(lexer));
         let res = parser.parse();
         assert_eq!(
             res,

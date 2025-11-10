@@ -29,7 +29,7 @@ pub enum ParsingError {
     WrongQasmVersion(String),
 }
 
-struct Parser {
+pub struct Parser {
     lexer: PeekableMultiLexer,
 }
 

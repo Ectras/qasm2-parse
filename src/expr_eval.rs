@@ -1,6 +1,16 @@
 use std::f64::consts;
 
-use crate::ast::{BinOp, Expr, FuncType, UnOp};
+use crate::ast::{BinOp, Expr, FuncType, GateCall, Program, Statement, UnOp};
+
+/// Replaces all expressions inside gate calls with their numerical result. This does
+/// *not* traverse into gate definitions.
+pub fn eval_all_args(program: &mut Program) {
+    for statement in &mut program.statements {
+        if let Statement::GateCall(GateCall { args, .. }) = statement {
+            args.iter_mut().for_each(|a| *a = Expr::Float(eval(&a)));
+        }
+    }
+}
 
 /// Numerically evalutes expressions. The expressions should no longer contain
 /// variables. Also, BitXor is currently not supported.

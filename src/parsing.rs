@@ -146,8 +146,13 @@ impl Parser {
     fn parse_include(&mut self) -> Result<(), ParsingError> {
         self.expect(TokenKind::Include)?;
         let path = self.expect(TokenKind::String)?;
-        let path = path.text.unwrap();
         self.expect(TokenKind::Semicolon)?;
+
+        // Remove the quotation marks around the string literal
+        let mut path = path.text.unwrap();
+        path.remove(0);
+        path.remove(path.len() - 1);
+
         // Since we just popped a few tokens, we can be sure that no peeked element
         // is buffered. So no worries about accidentially reading tokens from the old
         // file.

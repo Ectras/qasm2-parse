@@ -1,5 +1,8 @@
 use logos::{Lexer, Logos, Skip};
 
+/// A built-in file with standard definitions for QASM2 programs.
+static QELIB: &str = include_str!("qelib1.inc");
+
 #[derive(Default, Debug, Clone, PartialEq)]
 pub enum LexingError {
     UnclosedComment,
@@ -96,6 +99,7 @@ pub enum Token {
     Ln,
     #[token("sqrt")]
     Sqrt,
+    // TODO: better error handling
     #[regex("(?&int)", |lex| lex.slice().parse::<i64>().unwrap())]
     Integer(i64),
     #[regex("(?&int)(?&fexp)|[.][0-9]+(?&fexp)?|(?&int)[.][0-9]*(?&fexp)?", |lex| lex.slice().parse::<f64>().unwrap())]
@@ -107,4 +111,50 @@ pub enum Token {
     #[token("/*", |lex| skip_to_closing_comment_token(lex))]
     BlockComment,
     Eof,
+}
+
+/// Lexes a file at the given `path`, adding the tokens to the `tokens` vec.
+///
+/// The file `"qelib1.inc"` is built-in and while not be loaded from disk but provided
+/// directly.
+fn lex_file(path: &str, tokens: &mut Vec<Token>) -> Result<(), LexingError> {
+    let contents = if path == "qelib1.inc" {
+        QELIB
+    } else {
+        &std::fs::read_to_string(path).unwrap()
+    };
+    lex_str(contents, tokens)
+}
+
+/// Lexes the given `code`, adding the tokens to the `tokens` vec.
+fn lex_str(code: &str, tokens: &mut Vec<Token>) -> Result<(), LexingError> {
+    // Construct the lexer
+    let mut lexer = Token::lexer(code);
+
+    // Collect the tokens
+    let mut found_include = false;
+    while let Some(token) = lexer.next() {
+        let token = token?;
+        match token {
+            // TODO: prevent cyclic includes
+            Token::Include => found_include = true,
+            Token::String(inner) if found_include => {
+                found_include = false;
+                lex_file(&inner, tokens)?;
+            }
+            _ => {
+                found_include = false;
+                tokens.push(token);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Lexes the given `code`, returning the list of tokens.
+pub fn lex(code: &str) -> Result<Vec<Token>, LexingError> {
+    let mut tokens = Vec::new();
+    lex_str(code, &mut tokens)?;
+    tokens.push(Token::Eof);
+    Ok(tokens)
 }

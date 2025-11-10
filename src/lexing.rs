@@ -21,7 +21,7 @@ fn skip_to_closing_comment_token(lex: &mut Lexer<Token>) -> Result<Skip, LexingE
     }
 }
 
-#[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\r\n\f]+")]
 #[logos(skip r"//[^\n]*")]
 #[logos(subpattern int = "0|[1-9][0-9]*")]
@@ -96,14 +96,14 @@ pub enum Token {
     Ln,
     #[token("sqrt")]
     Sqrt,
-    #[regex("(?&int)")]
-    Integer,
-    #[regex("(?&int)(?&fexp)|[.][0-9]+(?&fexp)?|(?&int)[.][0-9]*(?&fexp)?")]
-    Float,
-    #[regex("\"[^\"\r\t\n]*\"")]
-    String,
-    #[regex("[a-z][A-Za-z0-9_]*")]
-    Identifier,
+    #[regex("(?&int)", |lex| lex.slice().parse::<i64>().unwrap())]
+    Integer(i64),
+    #[regex("(?&int)(?&fexp)|[.][0-9]+(?&fexp)?|(?&int)[.][0-9]*(?&fexp)?", |lex| lex.slice().parse::<f64>().unwrap())]
+    Float(f64),
+    #[regex("\"[^\"\r\t\n]*\"", |lex| lex.slice()[1..lex.slice().len() - 1].to_owned())]
+    String(String),
+    #[regex("[a-z][A-Za-z0-9_]*", |lex| lex.slice().to_owned())]
+    Identifier(String),
     #[token("/*", |lex| skip_to_closing_comment_token(lex))]
     BlockComment,
 }

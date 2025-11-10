@@ -12,7 +12,7 @@ use thiserror::Error;
 /// A built-in file with standard definitions for QASM2 programs.
 static QELIB: &str = include_str!("qelib1.inc");
 
-#[derive(Error, Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Error, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LexingError {
     #[error("unclosed block comment")]
     UnclosedComment,
@@ -35,7 +35,7 @@ fn skip_to_closing_comment_token(lex: &mut Lexer<TokenKind>) -> Result<Skip, Lex
     }
 }
 
-#[derive(Logos, Debug, Clone, Copy, PartialEq)]
+#[derive(Logos, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[logos(skip r"[ \t\r\n\f]+")]
 #[logos(skip r"//[^\n]*")]
 #[logos(subpattern int = "0|[1-9][0-9]*")]
@@ -128,56 +128,56 @@ pub enum TokenKind {
 impl std::fmt::Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            TokenKind::Integer => "an integer",
-            TokenKind::Float => "a float number",
-            TokenKind::String => "a string literal",
-            TokenKind::Identifier => "an identifier",
-            TokenKind::BlockComment => "a block comment",
-            TokenKind::Eof => "the end of input",
-            TokenKind::OpenQasm => "\"OPENQASM\"",
-            TokenKind::Include => "\"include\"",
-            TokenKind::Qreg => "\"qreg\"",
-            TokenKind::Creg => "\"creg\"",
-            TokenKind::Gate => "\"gate\"",
-            TokenKind::Opaque => "\"opaque\"",
-            TokenKind::Reset => "\"reset\"",
-            TokenKind::Measure => "\"measure\"",
-            TokenKind::Barrier => "\"barrier\"",
-            TokenKind::If => "\"if\"",
-            TokenKind::Pi => "\"pi\"",
-            TokenKind::U => "\"U\"",
-            TokenKind::CX => "\"CX\"",
-            TokenKind::LBracket => "\"[\"",
-            TokenKind::RBracket => "\"]\"",
-            TokenKind::LBrace => "\"{\"",
-            TokenKind::RBrace => "\"}\"",
-            TokenKind::LParen => "\"(\"",
-            TokenKind::RParen => "\")\"",
-            TokenKind::Semicolon => "\";\"",
-            TokenKind::Comma => "\",\"",
-            TokenKind::Dot => "\".\"",
-            TokenKind::Arrow => "\"->\"",
-            TokenKind::Equals => "\"==\"",
-            TokenKind::Plus => "\"+\"",
-            TokenKind::Minus => "\"-\"",
-            TokenKind::Asterisk => "\"*\"",
-            TokenKind::Slash => "\"/\"",
-            TokenKind::Caret => "\"^\"",
-            TokenKind::Sin => "\"sin\"",
-            TokenKind::Cos => "\"cos\"",
-            TokenKind::Tan => "\"tan\"",
-            TokenKind::Exp => "\"exp\"",
-            TokenKind::Ln => "\"ln\"",
-            TokenKind::Sqrt => "\"sqrt\"",
+            Self::Integer => "an integer",
+            Self::Float => "a float number",
+            Self::String => "a string literal",
+            Self::Identifier => "an identifier",
+            Self::BlockComment => "a block comment",
+            Self::Eof => "the end of input",
+            Self::OpenQasm => "\"OPENQASM\"",
+            Self::Include => "\"include\"",
+            Self::Qreg => "\"qreg\"",
+            Self::Creg => "\"creg\"",
+            Self::Gate => "\"gate\"",
+            Self::Opaque => "\"opaque\"",
+            Self::Reset => "\"reset\"",
+            Self::Measure => "\"measure\"",
+            Self::Barrier => "\"barrier\"",
+            Self::If => "\"if\"",
+            Self::Pi => "\"pi\"",
+            Self::U => "\"U\"",
+            Self::CX => "\"CX\"",
+            Self::LBracket => "\"[\"",
+            Self::RBracket => "\"]\"",
+            Self::LBrace => "\"{\"",
+            Self::RBrace => "\"}\"",
+            Self::LParen => "\"(\"",
+            Self::RParen => "\")\"",
+            Self::Semicolon => "\";\"",
+            Self::Comma => "\",\"",
+            Self::Dot => "\".\"",
+            Self::Arrow => "\"->\"",
+            Self::Equals => "\"==\"",
+            Self::Plus => "\"+\"",
+            Self::Minus => "\"-\"",
+            Self::Asterisk => "\"*\"",
+            Self::Slash => "\"/\"",
+            Self::Caret => "\"^\"",
+            Self::Sin => "\"sin\"",
+            Self::Cos => "\"cos\"",
+            Self::Tan => "\"tan\"",
+            Self::Exp => "\"exp\"",
+            Self::Ln => "\"ln\"",
+            Self::Sqrt => "\"sqrt\"",
         })
     }
 }
 
 impl TokenKind {
-    fn is_non_trivial(&self) -> bool {
+    const fn is_non_trivial(self) -> bool {
         matches!(
             self,
-            TokenKind::Integer | TokenKind::Float | TokenKind::String | TokenKind::Identifier
+            Self::Integer | Self::Float | Self::String | Self::Identifier
         )
     }
 }
@@ -208,7 +208,7 @@ self_cell!(
 impl OwningLexer {
     /// Creates a new lexer that owns the string it lexes.
     pub fn lexer(text: String) -> Self {
-        OwningLexer::new(text, |t| TokenKindLexer(TokenKind::lexer(t)))
+        Self::new(text, |t| TokenKindLexer(TokenKind::lexer(t)))
     }
 }
 
@@ -237,14 +237,14 @@ impl MultiLexer {
         P: AsRef<Path>,
     {
         let path = path.as_ref().as_os_str().to_str().unwrap();
-        let mut this = MultiLexer::new();
+        let mut this = Self::new();
         this.source_file(path)?;
         Ok(this)
     }
 
     /// Creates a new lexer by reading the given text.
     pub fn from_text(text: String) -> Self {
-        let mut this = MultiLexer::new();
+        let mut this = Self::new();
         let lexer = OwningLexer::lexer(text);
         this.lexers.push((None, lexer));
         this
@@ -282,9 +282,8 @@ impl Iterator for MultiLexer {
                         text: None,
                         file: None,
                     }));
-                } else {
-                    return None;
                 }
+                return None;
             };
 
             // Get the next token

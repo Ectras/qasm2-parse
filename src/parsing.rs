@@ -10,7 +10,7 @@ use crate::{
     lexing::{LexingError, PeekableMultiLexer, Token, TokenKind},
 };
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParsingError {
     #[error("expected {expected}, but found {actual}")]
     UnexpectedToken { actual: TokenKind, expected: String },
@@ -489,7 +489,7 @@ impl Parser {
     }
 
     /// Returns the [`BinOp`] this token represents (if it is a binary operator).
-    fn get_binop(kind: TokenKind) -> Option<BinOp> {
+    const fn get_binop(kind: TokenKind) -> Option<BinOp> {
         match kind {
             TokenKind::Plus => Some(BinOp::Add),
             TokenKind::Minus => Some(BinOp::Sub),

@@ -7,22 +7,25 @@ use crate::ast::{BinOp, Expr, FuncType, GateCall, Program, Statement, UnOp};
 pub fn eval_all_args(program: &mut Program) {
     for statement in &mut program.statements {
         if let Statement::GateCall(GateCall { args, .. }) = statement {
-            args.iter_mut().for_each(|a| *a = Expr::Float(eval(&a)));
+            for arg in args.iter_mut() {
+                *arg = Expr::Float(eval(&arg));
+            }
         }
     }
 }
 
 /// Numerically evalutes expressions. The expressions should no longer contain
 /// variables. Also, BitXor is currently not supported.
+#[must_use]
 pub fn eval(expr: &Expr) -> f64 {
     match expr {
         Expr::Pi => consts::PI,
         Expr::Int(x) => *x as _,
         Expr::Float(x) => *x,
         Expr::Variable(_) => panic!("Can not evaluate expressions with variables"),
-        Expr::Unary(un_op, inner) => eval_unop(*un_op, &inner),
-        Expr::Binary(bin_op, lhs, rhs) => eval_binop(*bin_op, &lhs, &rhs),
-        Expr::Function(func_type, inner) => eval_func(*func_type, &inner),
+        Expr::Unary(un_op, inner) => eval_unop(*un_op, inner),
+        Expr::Binary(bin_op, lhs, rhs) => eval_binop(*bin_op, lhs, rhs),
+        Expr::Function(func_type, inner) => eval_func(*func_type, inner),
     }
 }
 

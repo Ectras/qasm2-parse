@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::ast::{Expr, GateCall, GateDeclaration, Program, Statement};
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum GateCallError {
     #[error("Wrong number of classical arguments: Got {actual} but expected {expected}")]
     WrongNumberClassicalArgs { actual: usize, expected: usize },
@@ -195,7 +195,7 @@ impl GateInliner {
                 Change::Replace(idx, body) => {
                     statements.splice(idx..=idx, body);
                 }
-            };
+            }
         }
         Ok(())
     }

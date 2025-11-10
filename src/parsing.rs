@@ -119,6 +119,7 @@ impl Parser {
                 TokenKind::Qreg | TokenKind::Creg => self.parse_declaration(),
                 TokenKind::Gate | TokenKind::Opaque => self.parse_gate_declaration(),
                 TokenKind::If => self.parse_if_statement(),
+                TokenKind::Barrier => self.parse_barrier(),
                 _ => {
                     return Err(ParsingError::UnexpectedToken {
                         actual: next_token.kind,
@@ -226,6 +227,14 @@ impl Parser {
         };
         let qargs = self.parse_mixed_list()?;
         Ok(Statement::GateCall(GateCall { name, args, qargs }))
+    }
+
+    /// `<barrier> ::= "barrier" <mixedlist> ";"`
+    fn parse_barrier(&mut self) -> Result<Statement, ParsingError> {
+        self.expect(TokenKind::Barrier)?;
+        let arguments = self.parse_mixed_list()?;
+        self.expect(TokenKind::Semicolon)?;
+        Ok(Statement::Barrier(arguments))
     }
 
     /// `<body> ::= "{" {<bodyStatement>} "}"`

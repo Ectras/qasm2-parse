@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub mod ast;
-mod expr_eval;
-mod gate_inliner;
+pub mod expr_eval;
+pub mod gate_inliner;
 mod lexing;
 mod parsing;
 

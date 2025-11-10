@@ -1,10 +1,32 @@
-use logos::Logos;
+use logos::{Lexer, Logos, Skip};
+
+#[derive(Default, Debug, Clone, PartialEq)]
+pub enum LexingError {
+    UnclosedComment,
+    #[default]
+    UnknownSymbol,
+}
+
+/// Finds the next closing block comment token (`*/`) and skips to it. If none is
+/// found, reads until the end and returns an error.
+fn skip_to_closing_comment_token(lex: &mut Lexer<Token>) -> Result<Skip, LexingError> {
+    if let Some(closing) = lex.remainder().find("*/") {
+        // Found closing token, skip to it (inclusive token itself)
+        lex.bump(closing + "*/".len());
+        Ok(Skip)
+    } else {
+        // Skip all remaining input and emit an error
+        lex.bump(lex.remainder().len());
+        Err(LexingError::UnclosedComment)
+    }
+}
 
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
 #[logos(skip r"[ \t\r\n\f]+")]
 #[logos(skip r"//[^\n]*")]
 #[logos(subpattern int = "0|[1-9][0-9]*")]
 #[logos(subpattern fexp = "[eE][+-]?(?&int)")]
+#[logos(error = LexingError)]
 pub enum Token {
     #[token("OPENQASM")]
     OPENQASM,
@@ -82,4 +104,6 @@ pub enum Token {
     String,
     #[regex("[a-z][A-Za-z0-9_]*")]
     Identifier,
+    #[token("/*", |lex| skip_to_closing_comment_token(lex))]
+    BlockComment,
 }

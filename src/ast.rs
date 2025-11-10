@@ -174,7 +174,7 @@ impl Display for Argument {
 }
 
 /// Declaration of a gate. The body can be `None` in case of opaque gates.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct GateDeclaration {
     /// The name of the gate.
     pub name: String,

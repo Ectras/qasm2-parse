@@ -117,6 +117,8 @@ impl Parser {
             // Parse the statement
             let statement = match next_token.kind {
                 TokenKind::Qreg | TokenKind::Creg => self.parse_declaration(),
+                TokenKind::Gate | TokenKind::Opaque => self.parse_gate_declaration(),
+                TokenKind::If => self.parse_if_statement(),
                 _ => {
                     return Err(ParsingError::UnexpectedToken {
                         actual: next_token.kind,
@@ -182,6 +184,28 @@ impl Parser {
             qubits: qubit_params,
             body,
         }))
+    }
+
+    fn parse_quantum_operation(&mut self) -> Result<Statement, ParsingError> {
+        todo!()
+    }
+
+    /// `<ifStatement> ::= "if" "(" <identifier> "==" <integer> ")" <quantumOperation>`
+    fn parse_if_statement(&mut self) -> Result<Statement, ParsingError> {
+        self.expect(TokenKind::If)?;
+        self.expect(TokenKind::LParen)?;
+        let identifier = self.expect(TokenKind::Identifier)?;
+        let variable = identifier.text.unwrap();
+        self.expect(TokenKind::Equals)?;
+        let condition = self.expect(TokenKind::Integer)?;
+        let condition = condition.text.unwrap().parse()?;
+        self.expect(TokenKind::RParen)?;
+        let body = self.parse_quantum_operation()?;
+        Ok(Statement::If {
+            variable,
+            condition,
+            body: Box::new(body),
+        })
     }
 
     /// `<gateCall> ::= ("U" | "CX" | <identifier>) [<args>] <mixedlist> ";"`

@@ -50,6 +50,8 @@ pub enum TokenKind {
     Qreg,
     #[token("creg")]
     Creg,
+    #[token("gate")]
+    Gate,
     #[token("opaque")]
     Opaque,
     #[token("reset")]
@@ -136,6 +138,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Include => "\"include\"",
             TokenKind::Qreg => "\"qreg\"",
             TokenKind::Creg => "\"creg\"",
+            TokenKind::Gate => "\"gate\"",
             TokenKind::Opaque => "\"opaque\"",
             TokenKind::Reset => "\"reset\"",
             TokenKind::Measure => "\"measure\"",

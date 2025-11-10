@@ -29,7 +29,7 @@ pub struct GateInliner {
 impl GateInliner {
     /// Creates a new inliner that inlines all gate calls until only `U` and `CX`
     /// gates are left.
-    pub fn new_minimal() -> Self {
+    pub fn new_full_inliner() -> Self {
         Self::with_terminal_gates(FxHashSet::from_iter(["U", "CX"]))
     }
 
@@ -290,7 +290,7 @@ mod tests {
             ],
         };
 
-        let mut inliner = GateInliner::new_minimal();
+        let mut inliner = GateInliner::new_full_inliner();
         let result = inliner.inline_program(&mut program);
 
         assert_eq!(result, Ok(()));

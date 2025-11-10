@@ -253,8 +253,8 @@ impl Parser {
         let gate = self.expect_either(&[TokenKind::U, TokenKind::CX, TokenKind::Identifier])?;
         // All gate names should be lowercase
         let name = match gate.kind {
-            TokenKind::U => String::from("u"),
-            TokenKind::CX => String::from("cx"),
+            TokenKind::U => String::from("U"),
+            TokenKind::CX => String::from("CX"),
             TokenKind::Identifier => gate.text.unwrap(),
             _ => unreachable!(),
         };
@@ -544,7 +544,7 @@ measure q -> c;";
                     Statement::qreg("q", 2),
                     Statement::creg("c", 2),
                     Statement::gate_call(
-                        "u",
+                        "U",
                         vec![
                             Expr::Binary(
                                 BinOp::Div,
@@ -557,7 +557,7 @@ measure q -> c;";
                         vec![Argument("q".into(), Some(0))]
                     ),
                     Statement::gate_call(
-                        "cx",
+                        "CX",
                         vec![],
                         vec![Argument("q".into(), Some(0)), Argument("q".into(), Some(1))]
                     ),

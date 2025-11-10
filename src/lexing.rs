@@ -12,7 +12,7 @@ pub enum LexingError {
 
 /// Finds the next closing block comment token (`*/`) and skips to it. If none is
 /// found, reads until the end and returns an error.
-fn skip_to_closing_comment_token(lex: &mut Lexer<Token>) -> Result<Skip, LexingError> {
+fn skip_to_closing_comment_token(lex: &mut Lexer<TokenKind>) -> Result<Skip, LexingError> {
     if let Some(closing) = lex.remainder().find("*/") {
         // Found closing token, skip to it (inclusive token itself)
         lex.bump(closing + "*/".len());
@@ -30,7 +30,7 @@ fn skip_to_closing_comment_token(lex: &mut Lexer<Token>) -> Result<Skip, LexingE
 #[logos(subpattern int = "0|[1-9][0-9]*")]
 #[logos(subpattern fexp = "[eE][+-]?(?&int)")]
 #[logos(error = LexingError)]
-pub enum Token {
+pub enum TokenKind {
     #[token("OPENQASM")]
     OPENQASM,
     #[token("include")]
@@ -99,15 +99,14 @@ pub enum Token {
     Ln,
     #[token("sqrt")]
     Sqrt,
-    // TODO: better error handling
-    #[regex("(?&int)", |lex| lex.slice().parse::<i64>().unwrap())]
-    Integer(i64),
-    #[regex("(?&int)(?&fexp)|[.][0-9]+(?&fexp)?|(?&int)[.][0-9]*(?&fexp)?", |lex| lex.slice().parse::<f64>().unwrap())]
-    Float(f64),
-    #[regex("\"[^\"\r\t\n]*\"", |lex| lex.slice()[1..lex.slice().len() - 1].to_owned())]
-    String(String),
-    #[regex("[a-z][A-Za-z0-9_]*", |lex| lex.slice().to_owned())]
-    Identifier(String),
+    #[regex("(?&int)")]
+    Integer,
+    #[regex("(?&int)(?&fexp)|[.][0-9]+(?&fexp)?|(?&int)[.][0-9]*(?&fexp)?")]
+    Float,
+    #[regex("\"[^\"\r\t\n]*\"")]
+    String,
+    #[regex("[a-z][A-Za-z0-9_]*")]
+    Identifier,
     #[token("/*", |lex| skip_to_closing_comment_token(lex))]
     BlockComment,
     Eof,

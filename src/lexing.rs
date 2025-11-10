@@ -7,14 +7,17 @@ use std::{
 
 use logos::{Lexer, Logos, Skip};
 use self_cell::self_cell;
+use thiserror::Error;
 
 /// A built-in file with standard definitions for QASM2 programs.
 static QELIB: &str = include_str!("qelib1.inc");
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Error, Default, Debug, Clone, PartialEq)]
 pub enum LexingError {
+    #[error("unclosed block comment")]
     UnclosedComment,
     #[default]
+    #[error("unknown symbol")]
     UnknownSymbol,
 }
 

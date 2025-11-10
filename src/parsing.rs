@@ -3,7 +3,7 @@ use std::{iter::Peekable, num::ParseIntError};
 use thiserror::Error;
 
 use crate::{
-    ast::{GateDeclaration, Program, Statement},
+    ast::{Argument, Expr, GateCall, GateDeclaration, Program, Statement},
     lexing::{LexingError, MultiLexer, Token, TokenKind},
 };
 
@@ -175,6 +175,26 @@ impl Parser {
         }))
     }
 
+    /// `<gateCall> ::= ("U" | "CX" | <identifier>) [<args>] <mixedlist> ";"`
+    fn parse_gate_call(&mut self) -> Result<Statement, ParsingError> {
+        let gate = self.expect_either(&[TokenKind::U, TokenKind::CX, TokenKind::Identifier])?;
+        // All gate names should be lowercase
+        let name = match gate.kind {
+            TokenKind::U => String::from("u"),
+            TokenKind::CX => String::from("cx"),
+            TokenKind::Identifier => gate.text.unwrap(),
+            _ => unreachable!(),
+        };
+        let next_token = self.peek()?;
+        let args = if next_token.kind == TokenKind::LParen {
+            self.parse_args()?
+        } else {
+            Vec::new()
+        };
+        let qargs = self.parse_mixed_list()?;
+        Ok(Statement::GateCall(GateCall { name, args, qargs }))
+    }
+
     /// `<body> ::= "{" {<bodyStatement>} "}"`
     fn parse_body(&mut self) -> Result<Vec<Statement>, ParsingError> {
         self.expect(TokenKind::LBrace)?;
@@ -195,7 +215,19 @@ impl Parser {
 
     /// `<bodyStatement> ::= <gateCall> | "barrier" <idlist> ";"`
     fn parse_body_statement(&mut self) -> Result<Statement, ParsingError> {
-        todo!()
+        let next_token = self.peek()?;
+        if next_token.kind == TokenKind::Barrier {
+            self.expect(TokenKind::Barrier)?;
+            let identifiers = self.parse_idlist()?;
+            self.expect(TokenKind::Semicolon)?;
+            let arguments = identifiers
+                .into_iter()
+                .map(|id| Argument(id, None))
+                .collect();
+            Ok(Statement::Barrier(arguments))
+        } else {
+            self.parse_gate_call()
+        }
     }
 
     /// `<params> ::= "(" [<idlist>] ")"`
@@ -231,12 +263,75 @@ impl Parser {
         Ok(identifiers)
     }
 
+    /// `<args> ::= "(" [<explist>] ")"`
+    fn parse_args(&mut self) -> Result<Vec<Expr>, ParsingError> {
+        self.expect(TokenKind::LParen)?;
+        let next_token = self.peek()?;
+        let exprs = if next_token.kind != TokenKind::RParen {
+            self.parse_exp_list()?
+        } else {
+            Vec::new()
+        };
+        Ok(exprs)
+    }
+
+    /// `<explist> ::= <exp> {"," <exp>}`
+    fn parse_exp_list(&mut self) -> Result<Vec<Expr>, ParsingError> {
+        let mut exprs = Vec::new();
+        exprs.push(self.parse_expr()?);
+        loop {
+            // Parse more expressions as long as there are commas
+            let next_token = self.peek()?;
+            if next_token.kind != TokenKind::Comma {
+                break;
+            }
+
+            self.expect(TokenKind::Comma)?;
+            exprs.push(self.parse_expr()?);
+        }
+        Ok(exprs)
+    }
+
+    /// `<mixedlist> ::= <argument> {"," <argument>}`
+    fn parse_mixed_list(&mut self) -> Result<Vec<Argument>, ParsingError> {
+        let mut args = Vec::new();
+        args.push(self.parse_argument()?);
+        loop {
+            // Parse more arguments as long as there are commas
+            let next_token = self.peek()?;
+            if next_token.kind != TokenKind::Comma {
+                break;
+            }
+
+            self.expect(TokenKind::Comma)?;
+            args.push(self.parse_argument()?);
+        }
+        Ok(args)
+    }
+
+    /// `<argument> ::= <identifier> [<designator>]`
+    fn parse_argument(&mut self) -> Result<Argument, ParsingError> {
+        let identifier = self.expect(TokenKind::Identifier)?;
+        let name = identifier.text.unwrap();
+        let next_token = self.peek()?;
+        let size = if next_token.kind == TokenKind::LBracket {
+            Some(self.parse_designator()?)
+        } else {
+            None
+        };
+        Ok(Argument(name, size))
+    }
+
     /// `<designator> ::= "[" <integer> "]"`
     fn parse_designator(&mut self) -> Result<usize, ParsingError> {
         self.expect(TokenKind::LBracket)?;
         let size = self.expect(TokenKind::Integer)?;
         self.expect(TokenKind::RBracket)?;
         size.text.unwrap().parse().map_err(Into::into)
+    }
+
+    fn parse_expr(&mut self) -> Result<Expr, ParsingError> {
+        todo!()
     }
 }
 

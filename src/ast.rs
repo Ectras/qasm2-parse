@@ -41,12 +41,22 @@ impl Display for BinOp {
     }
 }
 
+pub type Precedence = u8;
+
 impl BinOp {
-    pub const fn get_precedence(self) -> u32 {
+    pub const fn precedence(self) -> Precedence {
         match self {
+            Self::BitXor => 1,
+            Self::Add | Self::Sub => 2,
+            Self::Mul | Self::Div => 3,
+        }
+    }
+
+    const fn parens_rank(self) -> u8 {
+        match self {
+            Self::Mul | Self::Div => 1,
             Self::Sub => 2,
             Self::Add => 3,
-            Self::Mul | Self::Div => 1,
             Self::BitXor => 4,
         }
     }
@@ -103,14 +113,14 @@ impl Display for Expr {
                 }
             }
             Self::Binary(op, lhs, rhs) => {
-                let pre = op.get_precedence();
+                let pre = op.parens_rank();
                 let lhs_need_parens = if let Self::Binary(opl, _, _) = **lhs {
-                    opl.get_precedence() > pre
+                    opl.parens_rank() > pre
                 } else {
                     false
                 };
                 let rhs_need_parens = if let Self::Binary(opr, _, _) = **rhs {
-                    opr.get_precedence() > pre
+                    opr.parens_rank() > pre
                 } else {
                     false
                 };

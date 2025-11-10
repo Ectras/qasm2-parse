@@ -120,12 +120,7 @@ impl Parser {
                 TokenKind::Gate | TokenKind::Opaque => self.parse_gate_declaration(),
                 TokenKind::If => self.parse_if_statement(),
                 TokenKind::Barrier => self.parse_barrier(),
-                _ => {
-                    return Err(ParsingError::UnexpectedToken {
-                        actual: next_token.kind,
-                        expected: "a statement".into(),
-                    });
-                }
+                _ => self.parse_quantum_operation(),
             }?;
 
             statements.push(statement);
@@ -187,8 +182,26 @@ impl Parser {
         }))
     }
 
+    /// `<quantumOperation> ::= <gateCall> | "measure" <argument> "->" <argument> ";" | "reset" <argument> ";"`
     fn parse_quantum_operation(&mut self) -> Result<Statement, ParsingError> {
-        todo!()
+        let next_token = self.peek()?;
+        match next_token.kind {
+            TokenKind::Measure => {
+                self.expect(TokenKind::Measure)?;
+                let src = self.parse_argument()?;
+                self.expect(TokenKind::Arrow)?;
+                let dest = self.parse_argument()?;
+                self.expect(TokenKind::Semicolon)?;
+                Ok(Statement::Measurement { src, dest })
+            }
+            TokenKind::Reset => {
+                self.expect(TokenKind::Reset)?;
+                let dest = self.parse_argument()?;
+                self.expect(TokenKind::Semicolon)?;
+                Ok(Statement::Reset { dest })
+            }
+            _ => self.parse_gate_call(),
+        }
     }
 
     /// `<ifStatement> ::= "if" "(" <identifier> "==" <integer> ")" <quantumOperation>`
@@ -258,17 +271,18 @@ impl Parser {
     /// `<bodyStatement> ::= <gateCall> | "barrier" <idlist> ";"`
     fn parse_body_statement(&mut self) -> Result<Statement, ParsingError> {
         let next_token = self.peek()?;
-        if next_token.kind == TokenKind::Barrier {
-            self.expect(TokenKind::Barrier)?;
-            let identifiers = self.parse_idlist()?;
-            self.expect(TokenKind::Semicolon)?;
-            let arguments = identifiers
-                .into_iter()
-                .map(|id| Argument(id, None))
-                .collect();
-            Ok(Statement::Barrier(arguments))
-        } else {
-            self.parse_gate_call()
+        match next_token.kind {
+            TokenKind::Barrier => {
+                self.expect(TokenKind::Barrier)?;
+                let identifiers = self.parse_idlist()?;
+                self.expect(TokenKind::Semicolon)?;
+                let arguments = identifiers
+                    .into_iter()
+                    .map(|id| Argument(id, None))
+                    .collect();
+                Ok(Statement::Barrier(arguments))
+            }
+            _ => self.parse_gate_call(),
         }
     }
 

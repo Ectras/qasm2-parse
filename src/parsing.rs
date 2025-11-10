@@ -3,7 +3,7 @@ use std::{iter::Peekable, num::ParseIntError};
 use thiserror::Error;
 
 use crate::{
-    ast::{Program, Statement},
+    ast::{GateDeclaration, Program, Statement},
     lexing::{LexingError, MultiLexer, Token, TokenKind},
 };
 
@@ -77,6 +77,17 @@ impl Parser {
         }
     }
 
+    /// Peeks the next token. It is assumed that a next token is always available, as
+    /// the iter should end with an "EoF" token and peek should not be called after
+    /// that.
+    fn peek(&mut self) -> Result<&Token, ParsingError> {
+        self.lexer
+            .peek()
+            .unwrap()
+            .as_ref()
+            .map_err(|err| (*err).into())
+    }
+
     pub fn parse(&mut self) -> Result<Program, ParsingError> {
         self.parse_program()
     }
@@ -87,7 +98,7 @@ impl Parser {
         let mut statements = Vec::new();
         loop {
             // Peek the next token
-            let next_token = self.lexer.peek().unwrap().as_ref().map_err(|err| *err)?;
+            let next_token = self.peek()?;
 
             // End when we are done with all input
             if next_token.kind == TokenKind::Eof {
@@ -136,6 +147,88 @@ impl Parser {
             name,
             size,
         })
+    }
+
+    /// `<gateDeclaration> ::= "gate" <identifier> [<params>] <idlist> "{" {<bodyStatement>} "}" | "opaque" <identifier> [<params>] <idlist> ";"`
+    fn parse_gate_declaration(&mut self) -> Result<Statement, ParsingError> {
+        let key = self.expect_either(&[TokenKind::Gate, TokenKind::Opaque])?;
+        let identifier = self.expect(TokenKind::Identifier)?;
+        let next_token = self.peek()?;
+        let classical_params = if next_token.kind == TokenKind::LParen {
+            self.parse_params()?
+        } else {
+            Vec::new()
+        };
+        let qubit_params = self.parse_idlist()?;
+        let body = if key.kind == TokenKind::Gate {
+            let body = self.parse_body()?;
+            Some(body)
+        } else {
+            self.expect(TokenKind::Semicolon)?;
+            None
+        };
+        Ok(Statement::GateDeclaration(GateDeclaration {
+            name: identifier.text.unwrap(),
+            params: classical_params,
+            qubits: qubit_params,
+            body,
+        }))
+    }
+
+    /// `<body> ::= "{" {<bodyStatement>} "}"`
+    fn parse_body(&mut self) -> Result<Vec<Statement>, ParsingError> {
+        self.expect(TokenKind::LBrace)?;
+        let mut statements = Vec::new();
+        loop {
+            // Parse next statement until we hit the closing brace
+            let next_token = self.peek()?;
+            if next_token.kind == TokenKind::RBrace {
+                break;
+            }
+
+            let statement = self.parse_body_statement()?;
+            statements.push(statement);
+        }
+        self.expect(TokenKind::RBrace)?;
+        Ok(statements)
+    }
+
+    /// `<bodyStatement> ::= <gateCall> | "barrier" <idlist> ";"`
+    fn parse_body_statement(&mut self) -> Result<Statement, ParsingError> {
+        todo!()
+    }
+
+    /// `<params> ::= "(" [<idlist>] ")"`
+    fn parse_params(&mut self) -> Result<Vec<String>, ParsingError> {
+        self.expect(TokenKind::LParen)?;
+        let next_token = self.peek()?;
+        let identifiers = if next_token.kind != TokenKind::RParen {
+            self.parse_idlist()?
+        } else {
+            Vec::new()
+        };
+        self.expect(TokenKind::RParen)?;
+        Ok(identifiers)
+    }
+
+    /// `<idlist> ::= <identifier> {"," <identifier>}`
+    fn parse_idlist(&mut self) -> Result<Vec<String>, ParsingError> {
+        let mut identifiers = Vec::new();
+        let identifier = self.expect(TokenKind::Identifier)?;
+        identifiers.push(identifier.text.unwrap());
+
+        loop {
+            // Parse more identifiers as long as there are commas
+            let next_token = self.peek()?;
+            if next_token.kind != TokenKind::Comma {
+                break;
+            }
+
+            self.expect(TokenKind::Comma)?;
+            let identifier = self.expect(TokenKind::Identifier)?;
+            identifiers.push(identifier.text.unwrap());
+        }
+        Ok(identifiers)
     }
 
     /// `<designator> ::= "[" <integer> "]"`

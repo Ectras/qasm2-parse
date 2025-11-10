@@ -81,6 +81,7 @@ impl Parser {
         self.parse_program()
     }
 
+    /// `<program> ::= <version> {<statement>}`
     fn parse_program(&mut self) -> Result<Program, ParsingError> {
         self.parse_version()?;
         let mut statements = Vec::new();
@@ -110,6 +111,7 @@ impl Parser {
         Ok(Program { statements })
     }
 
+    /// `<version> ::= "OPENQASM" (<integer> | <float>) ";"`
     fn parse_version(&mut self) -> Result<(), ParsingError> {
         self.expect(TokenKind::OPENQASM)?;
         let version = self.expect_either(&[TokenKind::Float, TokenKind::Integer])?;
@@ -121,6 +123,7 @@ impl Parser {
         Ok(())
     }
 
+    /// `<declaration> ::= ("qreg" | "creg") <identifier> <designator> ";"`
     fn parse_declaration(&mut self) -> Result<Statement, ParsingError> {
         let decl = self.expect_either(&[TokenKind::Qreg, TokenKind::Creg])?;
         let is_quantum = decl.kind == TokenKind::Qreg;
@@ -135,6 +138,7 @@ impl Parser {
         })
     }
 
+    /// `<designator> ::= "[" <integer> "]"`
     fn parse_designator(&mut self) -> Result<usize, ParsingError> {
         self.expect(TokenKind::LBracket)?;
         let size = self.expect(TokenKind::Integer)?;

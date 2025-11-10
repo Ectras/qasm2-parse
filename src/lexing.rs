@@ -123,6 +123,53 @@ pub enum TokenKind {
     Eof,
 }
 
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            TokenKind::Integer => "an integer",
+            TokenKind::Float => "a float number",
+            TokenKind::String => "a string literal",
+            TokenKind::Identifier => "an identifier",
+            TokenKind::BlockComment => "a block comment",
+            TokenKind::Eof => "the end of input",
+            TokenKind::OPENQASM => "\"OPENQASM\"",
+            TokenKind::Include => "\"include\"",
+            TokenKind::Qreg => "\"qreg\"",
+            TokenKind::Creg => "\"creg\"",
+            TokenKind::Opaque => "\"opaque\"",
+            TokenKind::Reset => "\"reset\"",
+            TokenKind::Measure => "\"measure\"",
+            TokenKind::Barrier => "\"barrier\"",
+            TokenKind::If => "\"if\"",
+            TokenKind::Pi => "\"pi\"",
+            TokenKind::U => "\"U\"",
+            TokenKind::CX => "\"CX\"",
+            TokenKind::LBracket => "\"[\"",
+            TokenKind::RBracket => "\"]\"",
+            TokenKind::LBrace => "\"{\"",
+            TokenKind::RBrace => "\"}\"",
+            TokenKind::LParen => "\"(\"",
+            TokenKind::RParen => "\")\"",
+            TokenKind::Semicolon => "\";\"",
+            TokenKind::Comma => "\",\"",
+            TokenKind::Dot => "\".\"",
+            TokenKind::Arrow => "\"->\"",
+            TokenKind::Equals => "\"==\"",
+            TokenKind::Plus => "\"+\"",
+            TokenKind::Minus => "\"-\"",
+            TokenKind::Asterisk => "\"*\"",
+            TokenKind::Slash => "\"/\"",
+            TokenKind::Caret => "\"^\"",
+            TokenKind::Sin => "\"sin\"",
+            TokenKind::Cos => "\"cos\"",
+            TokenKind::Tan => "\"tan\"",
+            TokenKind::Exp => "\"exp\"",
+            TokenKind::Ln => "\"ln\"",
+            TokenKind::Sqrt => "\"sqrt\"",
+        })
+    }
+}
+
 impl TokenKind {
     fn is_non_trivial(&self) -> bool {
         matches!(

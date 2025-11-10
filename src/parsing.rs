@@ -1,7 +1,4 @@
-use std::{
-    f64::consts,
-    num::{ParseFloatError, ParseIntError},
-};
+use std::num::{ParseFloatError, ParseIntError};
 
 use thiserror::Error;
 
@@ -461,7 +458,7 @@ impl Parser {
         let expr = match token.kind {
             TokenKind::Float => Expr::Float(token.text.unwrap().parse()?),
             TokenKind::Integer => Expr::Int(token.text.unwrap().parse()?),
-            TokenKind::Pi => Expr::Float(consts::PI),
+            TokenKind::Pi => Expr::Pi,
             TokenKind::Identifier => Expr::Variable(token.text.unwrap()),
             TokenKind::Minus => {
                 let inner = self.parse_factor()?;
@@ -546,13 +543,9 @@ measure q -> c;";
                     Statement::gate_call(
                         "U",
                         vec![
-                            Expr::Binary(
-                                BinOp::Div,
-                                Box::new(Expr::Float(consts::PI)),
-                                Box::new(Expr::Int(2))
-                            ),
+                            Expr::Binary(BinOp::Div, Box::new(Expr::Pi), Box::new(Expr::Int(2))),
                             Expr::Int(0),
-                            Expr::Float(consts::PI)
+                            Expr::Pi
                         ],
                         vec![Argument("q".into(), Some(0))]
                     ),
@@ -627,7 +620,7 @@ measure q -> c;";
                     Statement::qreg("q", 2),
                     Statement::gate_call(
                         "foo",
-                        vec![Expr::Float(consts::PI)],
+                        vec![Expr::Pi],
                         vec![Argument("q".into(), Some(1)), Argument("q".into(), Some(0))]
                     )
                 ]

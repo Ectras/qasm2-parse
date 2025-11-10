@@ -1,9 +1,12 @@
+use std::f64::consts;
+
 use crate::ast::{BinOp, Expr, FuncType, UnOp};
 
 /// Numerically evalutes expressions. The expressions should no longer contain
 /// variables. Also, BitXor is currently not supported.
 pub fn eval(expr: &Expr) -> f64 {
     match expr {
+        Expr::Pi => consts::PI,
         Expr::Int(x) => *x as _,
         Expr::Float(x) => *x,
         Expr::Variable(_) => panic!("Can not evaluate expressions with variables"),

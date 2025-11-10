@@ -90,6 +90,7 @@ impl Display for FuncType {
 /// A mathematical expression.
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Pi,
     Int(u64),
     Float(f64),
     Variable(String),
@@ -101,6 +102,7 @@ pub enum Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Pi => write!(f, "pi"),
             Self::Int(x) => write!(f, "{x}"),
             Self::Float(x) => write!(f, "{x}"),
             Self::Variable(x) => write!(f, "{x}"),
@@ -146,6 +148,7 @@ impl Display for Expr {
 impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::Pi, Self::Pi) => true,
             (Self::Int(l0), Self::Int(r0)) => l0 == r0,
             (Self::Float(l0), Self::Float(r0)) => l0 == r0,
             (Self::Variable(l0), Self::Variable(r0)) => l0 == r0,

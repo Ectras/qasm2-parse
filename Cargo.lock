@@ -108,6 +108,7 @@ version = "0.1.0"
 dependencies = [
  "float-cmp",
  "itertools",
+ "lazy_static",
  "logos",
  "rustc-hash",
  "self_cell",

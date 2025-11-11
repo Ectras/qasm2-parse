@@ -13,6 +13,7 @@ rust-version = "1.85"
 [dependencies]
 float-cmp = "0.10.0"
 itertools = "0.14.0"
+lazy_static = "1.5.0"
 logos = "0.15.1"
 rustc-hash = "2.1.1"
 self_cell = "1.2.1"

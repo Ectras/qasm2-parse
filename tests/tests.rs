@@ -1,11 +1,14 @@
-use qasm2_parse::{ast::Statement, gate_inliner::GateInliner};
+use qasm2_parse::{
+    ast::Statement,
+    gate_inliner::{GateInliner, gate_sets},
+};
 
 #[test]
 fn full_inlining() {
     let code = include_str!("random_indep_qiskit_10.qasm");
     let mut program = qasm2_parse::parse_string(code.to_owned()).expect("Error parsing file");
 
-    let mut inliner = GateInliner::new_full_inliner();
+    let mut inliner = GateInliner::new(&gate_sets::MINIMAL);
     inliner
         .inline_program(&mut program)
         .expect("Error inlining");

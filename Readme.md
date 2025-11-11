@@ -46,14 +46,14 @@ include \"qelib1.inc\";
 ### Gate inlining
 OpenQASM 2 allows the users to define custom gates as a sequence of calls to other gates.
 Actually, the only built-in gates are `U` and `CX`.
-Other standard gates are provided by the include file `qelib1.inc` and are defined in terms of `U` and `CX` files.
+Other standard gates are provided by the include file `qelib1.inc` and are defined in terms of `U` and `CX` gates.
 
 To make it easier to work with programs of these different levels of abstractions, this crate provides a gate inliner.
 It will recursively inline custom gates until only calls to "known" gates are left (where the set of known gate names can be provided by the user).
 
 Example:
 ```rust
-use qasm2_parse::{gate_inliner::GateInliner, parse_string};
+use qasm2_parse::{gate_inliner::{GateInliner, gate_sets}, parse_string};
 
 fn main() {
     let text = "\
@@ -70,7 +70,7 @@ qreg q[1];
 x q[0];";
 
     let mut program = parse_string(text.to_owned()).unwrap();
-    let mut inliner = GateInliner::new_full_inliner();
+    let mut inliner = GateInliner::new(&gate_sets::MINIMAL);
     inliner.inline_program(&mut program).unwrap();
 
     assert_eq!(
@@ -116,4 +116,5 @@ U(5.526382811871658, 0, 0) q[0];
 - Annotate parsing errors with source locations
 - Make include resolving an (optional) separate step?
 - Support BitXor in expression evaluation
+- Semantic analysis (not every parsable program is necessarily valid)
 - Make parsing only require &str, not String

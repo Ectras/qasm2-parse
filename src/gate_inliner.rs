@@ -19,37 +19,45 @@ pub enum GateCallError {
     UndefinedVariable(String),
 }
 
-/// Struct to inline gate calls with previous gate declarations.
-#[derive(Debug)]
-pub struct GateInliner {
-    definitions: FxHashMap<String, GateDeclaration>,
-    terminal_gates: FxHashSet<&'static str>,
-}
+/// A set of gate names.
+pub type GateSet = FxHashSet<&'static str>;
 
-impl GateInliner {
-    /// Creates a new inliner that inlines all gate calls until only `U` and `CX`
-    /// gates are left.
-    pub fn new_full_inliner() -> Self {
-        Self::with_terminal_gates(FxHashSet::from_iter(["U", "CX"]))
-    }
+/// Predefined gate sets.
+pub mod gate_sets {
+    use lazy_static::lazy_static;
+    use rustc_hash::FxHashSet;
 
-    /// Creates a new inliner that inlines all gate calls until only gates from the
-    /// `qelib1.inc` file are left.
-    pub fn new_standard_inliner() -> Self {
-        Self::with_terminal_gates(FxHashSet::from_iter([
+    use crate::gate_inliner::GateSet;
+
+    lazy_static! {
+        /// Gate set containing only the `U` and `CX` gate.
+        pub static ref MINIMAL: GateSet = FxHashSet::from_iter(["U", "CX"]);
+
+        /// Gate set containing all gates from the `qelib1.inc` standard file.
+        pub static ref STANDARD: GateSet = FxHashSet::from_iter([
             "u3", "u2", "u1", "cx", "id", "u0", "u", "p", "x", "y", "z", "h", "s", "sdg", "t",
             "tdg", "rx", "ry", "rz", "sx", "sxdg", "cz", "cy", "swap", "ch", "ccx", "cswap", "crx",
             "cry", "crz", "cu1", "cp", "cu3", "csx", "cu", "rxx", "rzz", "rccx", "rc3x", "c3x",
             "c3sqrtx", "c4x",
-        ]))
+        ]);
     }
+}
 
+/// Struct to inline gate calls with previous gate declarations.
+#[derive(Debug)]
+pub struct GateInliner<'a> {
+    definitions: FxHashMap<String, GateDeclaration>,
+    terminal_gates: &'a GateSet,
+}
+
+impl<'a> GateInliner<'a> {
     /// Creates a new inliner that inlines all gate calls with the respective gate
-    /// definitions until all calls are to gates in the `terminal_gates` set.
-    pub fn with_terminal_gates(terminal_gates: FxHashSet<&'static str>) -> Self {
+    /// definitions until all calls are to gates in the `gate_set`. Predefined gate
+    /// sets can be found in [`gate_sets`].
+    pub fn new(gate_set: &'a GateSet) -> Self {
         Self {
             definitions: FxHashMap::default(),
-            terminal_gates,
+            terminal_gates: gate_set,
         }
     }
 
@@ -299,7 +307,7 @@ mod tests {
             ],
         };
 
-        let mut inliner = GateInliner::new_full_inliner();
+        let mut inliner = GateInliner::new(&gate_sets::MINIMAL);
         let result = inliner.inline_program(&mut program);
 
         assert_eq!(result, Ok(()));

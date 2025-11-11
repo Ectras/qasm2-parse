@@ -1,8 +1,14 @@
 [package]
 name = "qasm2-parse"
-license = "MIT OR Apache-2.0"
 version = "0.1.0"
+description = "A library for parsing OpenQASM 2 code"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Ectras/qasm2-parse"
+readme = "Readme.md"
+keywords = ["quantum", "parser", "qasm"]
+categories = ["parser-implementations"]
 edition = "2024"
+rust-version = "1.85"
 
 [dependencies]
 float-cmp = "0.10.0"

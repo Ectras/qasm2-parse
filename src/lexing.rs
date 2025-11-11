@@ -184,6 +184,7 @@ impl TokenKind {
 
 /// A token with location information.
 #[derive(Debug)]
+#[allow(dead_code, reason = "Tracking the location is work in progress")]
 pub struct Token {
     /// The type of this token.
     pub kind: TokenKind,

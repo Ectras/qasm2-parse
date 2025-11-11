@@ -33,7 +33,16 @@ impl GateInliner {
         Self::with_terminal_gates(FxHashSet::from_iter(["U", "CX"]))
     }
 
-    // TODO: add new constructor for an inliner that stops at qelib1.inc gates
+    /// Creates a new inliner that inlines all gate calls until only gates from the
+    /// `qelib1.inc` file are left.
+    pub fn new_standard_inliner() -> Self {
+        Self::with_terminal_gates(FxHashSet::from_iter([
+            "u3", "u2", "u1", "cx", "id", "u0", "u", "p", "x", "y", "z", "h", "s", "sdg", "t",
+            "tdg", "rx", "ry", "rz", "sx", "sxdg", "cz", "cy", "swap", "ch", "ccx", "cswap", "crx",
+            "cry", "crz", "cu1", "cp", "cu3", "csx", "cu", "rxx", "rzz", "rccx", "rc3x", "c3x",
+            "c3sqrtx", "c4x",
+        ]))
+    }
 
     /// Creates a new inliner that inlines all gate calls with the respective gate
     /// definitions until all calls are to gates in the `terminal_gates` set.

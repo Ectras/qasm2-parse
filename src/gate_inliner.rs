@@ -35,7 +35,7 @@ pub mod gate_sets {
 
         /// Gate set containing all gates from the `qelib1.inc` standard file.
         pub static ref STANDARD: GateSet = FxHashSet::from_iter([
-            "u3", "u2", "u1", "cx", "id", "u0", "u", "p", "x", "y", "z", "h", "s", "sdg", "t",
+            "U", "CX", "u3", "u2", "u1", "cx", "id", "u0", "u", "p", "x", "y", "z", "h", "s", "sdg", "t",
             "tdg", "rx", "ry", "rz", "sx", "sxdg", "cz", "cy", "swap", "ch", "ccx", "cswap", "crx",
             "cry", "crz", "cu1", "cp", "cu3", "csx", "cu", "rxx", "rzz", "rccx", "rc3x", "c3x",
             "c3sqrtx", "c4x",

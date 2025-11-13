@@ -115,6 +115,5 @@ U(5.526382811871658, 0, 0) q[0];
 ## Planned features
 - Annotate parsing errors with source locations
 - Make include resolving an (optional) separate step?
-- Support BitXor in expression evaluation
 - Semantic analysis (not every parsable program is necessarily valid)
 - Make parsing only require &str, not String

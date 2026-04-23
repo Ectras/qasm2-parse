@@ -1,3 +1,6 @@
+> [!WARNING]
+> The repository was used to Codeberg: <https://codeberg.org/Ectras/qasm2-parse>
+
 # qasm2-parse
 
 This create provides functionality to parse [OpenQASM 2](https://arxiv.org/abs/1707.03429) code into an abstract syntax tree (AST) that can then be used to e.g. construct a quantum circuit from it.
